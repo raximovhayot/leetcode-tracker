@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -49,13 +50,14 @@ type Props = {
 
 const DIFFICULTIES: Difficulty[] = ["Easy", "Medium", "Hard"];
 
+// One approach per line so names may safely contain commas.
 function approachesToText(approaches: Approach[]): string {
-  return approaches.map((a) => a.name).join(", ");
+  return approaches.map((a) => a.name).join("\n");
 }
 
 function textToApproaches(text: string, previous: Approach[]): Approach[] {
   const names = text
-    .split(",")
+    .split("\n")
     .map((n) => n.trim())
     .filter((n) => n.length > 0);
   return names.map((name) => {
@@ -209,11 +211,12 @@ export function ProblemFormDialog({
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="problem-approaches">Approaches</Label>
-            <Input
+            <Textarea
               id="problem-approaches"
               value={approachesText}
               onChange={(e) => setApproachesText(e.target.value)}
-              placeholder="Comma separated, e.g. Brute force, Two pointers"
+              rows={4}
+              placeholder={"One per line, e.g.\nBrute force\nTwo pointers"}
             />
           </div>
         </div>
