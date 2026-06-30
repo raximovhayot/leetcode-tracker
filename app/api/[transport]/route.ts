@@ -70,9 +70,9 @@ const handler = createMcpHandler(
         phase: z.string().describe("Phase name to add the problem to."),
         number: z.number().describe("LeetCode problem number."),
         title: z.string().describe("Problem title."),
+        url: z.string().optional().describe("LeetCode problem URL."),
         difficulty: difficulty.optional().describe("Problem difficulty."),
         must: z.boolean().optional().describe("Mark as a must-do problem."),
-        session: z.string().optional().describe("Optional study session label."),
         approaches: approaches.optional(),
       },
     });
@@ -88,6 +88,7 @@ const handler = createMcpHandler(
             z.object({
               number: z.number(),
               title: z.string(),
+              url: z.string().optional(),
               difficulty: difficulty.optional(),
               must: z.boolean().optional(),
               approaches: approaches.optional(),

@@ -11,10 +11,10 @@ export type Problem = {
   $id: string;
   number: number;
   title: string;
+  url: string;
   difficulty: Difficulty;
   must: boolean;
   solved: boolean;
-  session: string;
   order: number;
   phaseId: string;
   approaches: Approach[];

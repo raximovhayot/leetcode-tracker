@@ -80,10 +80,10 @@ async function findProblemByNumber(userId: string, number: number) {
 type ProblemArg = {
   number: number;
   title: string;
+  url?: string;
   difficulty?: Difficulty;
   must?: boolean;
   solved?: boolean;
-  session?: string;
   approaches?: unknown;
 };
 
@@ -93,10 +93,10 @@ async function insertProblem(userId: string, phaseId: string, p: ProblemArg) {
     phaseId,
     number: Number(p.number),
     title: String(p.title),
+    url: p.url ? String(p.url) : undefined,
     difficulty: p.difficulty ?? "Easy",
     must: Boolean(p.must),
     solved: Boolean(p.solved),
-    session: p.session ? String(p.session) : "",
     order: Number(p.number),
     approaches: asApproaches(p.approaches),
   };
@@ -181,13 +181,13 @@ export const mcpTools: McpTool[] = [
         phase: { type: "string", description: "Phase name to add the problem to." },
         number: { type: "number", description: "LeetCode problem number." },
         title: { type: "string", description: "Problem title." },
+        url: { type: "string", description: "LeetCode problem URL." },
         difficulty: {
           type: "string",
           enum: ["Easy", "Medium", "Hard"],
           description: "Problem difficulty.",
         },
         must: { type: "boolean", description: "Mark as a must-do problem." },
-        session: { type: "string", description: "Optional study session label." },
         approaches: {
           type: "array",
           description:
@@ -202,9 +202,9 @@ export const mcpTools: McpTool[] = [
       const problem = await insertProblem(userId, phaseId, {
         number: Number(args.number),
         title: String(args.title),
+        url: args.url ? String(args.url) : undefined,
         difficulty: args.difficulty as Difficulty | undefined,
         must: Boolean(args.must),
-        session: args.session ? String(args.session) : undefined,
         approaches: args.approaches,
       });
       return { id: problem.$id, number: problem.number, title: problem.title };
@@ -226,6 +226,7 @@ export const mcpTools: McpTool[] = [
             properties: {
               number: { type: "number" },
               title: { type: "string" },
+              url: { type: "string" },
               difficulty: { type: "string", enum: ["Easy", "Medium", "Hard"] },
               must: { type: "boolean" },
               approaches: { type: "array", items: { type: "string" } },

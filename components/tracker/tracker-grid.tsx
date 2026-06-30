@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { computeStats } from "@/lib/stats";
+import { approachesAllDone, computeStats } from "@/lib/stats";
 import type { Approach, PhaseWithProblems, Problem } from "@/lib/types";
 
 import { Dashboard } from "./dashboard";
@@ -30,6 +30,7 @@ const difficultyVariant: Record<
   Medium: "default",
   Hard: "destructive",
 };
+
 
 export function TrackerGrid({ initialPhases }: Props) {
   const [phases, setPhases] = useState(initialPhases);
@@ -66,15 +67,14 @@ export function TrackerGrid({ initialPhases }: Props) {
     const approaches: Approach[] = problem.approaches.map((a, i) =>
       i === index ? { ...a, done } : a,
     );
+    // Mirror the backend: the overall solved flag follows the approaches.
     patchProblem(problem, { approachIndex: index, done }, {
       ...problem,
       approaches,
+      solved: approachesAllDone(approaches),
     });
   }
 
-  function toggleSolved(problem: Problem, solved: boolean) {
-    patchProblem(problem, { solved }, { ...problem, solved });
-  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -104,7 +104,6 @@ export function TrackerGrid({ initialPhases }: Props) {
                     <TableHead className="min-w-48">Problem</TableHead>
                     <TableHead className="w-24">Difficulty</TableHead>
                     <TableHead className="w-20">Priority</TableHead>
-                    <TableHead className="w-20 text-center">Solved</TableHead>
                     <TableHead className="min-w-64">Approaches</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -115,7 +114,18 @@ export function TrackerGrid({ initialPhases }: Props) {
                         {problem.number}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {problem.title}
+                        {problem.url ? (
+                          <a
+                            href={problem.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline"
+                          >
+                            {problem.title}
+                          </a>
+                        ) : (
+                          problem.title
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge variant={difficultyVariant[problem.difficulty]}>
@@ -126,15 +136,6 @@ export function TrackerGrid({ initialPhases }: Props) {
                         {problem.must ? (
                           <Badge variant="default">★ MUST</Badge>
                         ) : null}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Checkbox
-                          checked={problem.solved}
-                          onCheckedChange={(v) =>
-                            toggleSolved(problem, v === true)
-                          }
-                          aria-label="Solved"
-                        />
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-x-4 gap-y-2">

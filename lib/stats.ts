@@ -1,5 +1,31 @@
 import type { PhaseWithProblems, Problem, TrackerStats } from "./types";
 
+/** Overall completion state of a problem, derived from its approaches. */
+export type SolveStatus = "solved" | "partial" | "unsolved";
+
+/**
+ * Derives a problem's solve status. When the problem has approaches, the status
+ * is driven entirely by them (all done = solved, some done = partial, none =
+ * unsolved). Without approaches it falls back to the stored `solved` flag.
+ */
+export function getSolveStatus(problem: Problem): SolveStatus {
+  const total = problem.approaches.length;
+  if (total > 0) {
+    const done = problem.approaches.filter((a) => a.done).length;
+    if (done === 0) return "unsolved";
+    if (done === total) return "solved";
+    return "partial";
+  }
+  return problem.solved ? "solved" : "unsolved";
+}
+
+/** Whether every approach of a problem is done (used to set the `solved` flag). */
+export function approachesAllDone(
+  approaches: { done: boolean }[],
+): boolean {
+  return approaches.length > 0 && approaches.every((a) => a.done);
+}
+
 /**
  * Derives the dashboard counters from the loaded data. Everything is computed
  * in memory so the grid needs only a single fetch (keeps Appwrite reads low).

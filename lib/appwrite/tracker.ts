@@ -16,6 +16,7 @@ import type {
   PhaseWithProblems,
   Problem,
 } from "../types";
+import { approachesAllDone } from "../stats";
 import { appwriteConfig } from "./config";
 
 const { databaseId, phasesCollectionId, problemsCollectionId } = appwriteConfig;
@@ -59,10 +60,10 @@ function mapProblem(input: Models.Document): Problem {
     $id: doc.$id,
     number: Number(doc.number ?? 0),
     title: String(doc.title ?? ""),
+    url: String(doc.url ?? ""),
     difficulty: (doc.difficulty as Difficulty) ?? "Easy",
     must: Boolean(doc.must),
     solved: Boolean(doc.solved),
-    session: String(doc.session ?? ""),
     order: Number(doc.order ?? 0),
     phaseId: String(doc.phaseId ?? ""),
     approaches: parseApproaches(doc.approaches),
@@ -117,10 +118,10 @@ export type AddProblemInput = {
   phaseId: string;
   number: number;
   title: string;
+  url?: string;
   difficulty?: Difficulty;
   must?: boolean;
   solved?: boolean;
-  session?: string;
   order?: number;
   approaches?: Approach[];
 };
@@ -138,10 +139,10 @@ export async function addProblem(
       phaseId: input.phaseId,
       number: input.number,
       title: input.title,
+      url: input.url ?? "",
       difficulty: input.difficulty ?? "Easy",
       must: input.must ?? false,
       solved: input.solved ?? false,
-      session: input.session ?? "",
       order: input.order ?? input.number,
       approaches: JSON.stringify(input.approaches ?? []),
       userId,
@@ -190,6 +191,12 @@ export async function updateProblem(
   if (patch.must !== undefined) data.must = patch.must;
   if (patch.approaches !== undefined) {
     data.approaches = JSON.stringify(patch.approaches);
+    // Keep the overall solved flag in sync with the approaches: a problem is
+    // fully solved only when every approach is done. An explicit `solved` in the
+    // same patch still wins (manual override).
+    if (patch.solved === undefined) {
+      data.solved = approachesAllDone(patch.approaches);
+    }
   }
 
   const doc = await databases.updateDocument(

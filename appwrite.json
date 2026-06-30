@@ -57,10 +57,10 @@
       "attributes": [
         { "key": "number", "type": "integer", "required": true, "min": 0, "max": 1000000, "array": false },
         { "key": "title", "type": "string", "size": 255, "required": true, "array": false },
+        { "key": "url", "type": "string", "size": 1024, "required": false, "default": "", "array": false },
         { "key": "difficulty", "type": "string", "size": 16, "required": false, "default": "Easy", "format": "enum", "elements": ["Easy", "Medium", "Hard"], "array": false },
         { "key": "must", "type": "boolean", "required": false, "default": false, "array": false },
         { "key": "solved", "type": "boolean", "required": false, "default": false, "array": false },
-        { "key": "session", "type": "string", "size": 255, "required": false, "default": "", "array": false },
         { "key": "order", "type": "integer", "required": false, "min": 0, "max": 1000000, "default": 0, "array": false },
         { "key": "phaseId", "type": "string", "size": 255, "required": true, "array": false },
         { "key": "approaches", "type": "string", "size": 100000, "required": false, "default": "[]", "array": false },
