@@ -1,6 +1,27 @@
 {
   "projectName": "LeetCode Tracker",
-  "projectId": "REPLACE_WITH_YOUR_PROJECT_ID",
+  "projectId": "6a4370aa003a987aaf37",
+  "sites": [
+    {
+      "$id": "leetcode-tracker",
+      "name": "LeetCode Tracker",
+      "enabled": true,
+      "logging": true,
+      "framework": "nextjs",
+      "timeout": 30,
+      "installCommand": "npm install",
+      "buildCommand": "npm run build",
+      "outputDirectory": "./.next",
+      "buildRuntime": "node-22",
+      "adapter": "ssr",
+      "fallbackFile": "",
+      "deploymentRetention": 0,
+      "buildSpecification": "s-0.5vcpu-512mb",
+      "runtimeSpecification": "s-0.5vcpu-512mb",
+      "path": ".",
+      "ignore": ["node_modules", ".next", ".git", "*.tsbuildinfo"]
+    }
+  ],
   "databases": [
     {
       "$id": "leetcode",
