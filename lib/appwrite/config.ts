@@ -13,6 +13,8 @@ export const appwriteConfig = {
   problemsCollectionId:
     process.env.APPWRITE_PROBLEMS_COLLECTION_ID ?? "problems",
   tokensCollectionId: process.env.APPWRITE_TOKENS_COLLECTION_ID ?? "mcp_tokens",
+  timelinesCollectionId:
+    process.env.APPWRITE_TIMELINES_COLLECTION_ID ?? "timelines",
 } as const;
 
 /** Server-only secret. Reading this from a client component will return "". */

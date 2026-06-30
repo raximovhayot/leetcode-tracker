@@ -26,6 +26,11 @@ import {
 
 type Props = {
   initialPhases: PhaseWithProblems[];
+  /**
+   * The currently active timeline, if any. When present, the tracker defaults
+   * to showing only the problems it contains (with a toggle to show all).
+   */
+  currentTimeline?: { name: string; problemIds: string[] } | null;
 };
 
 const difficultyVariant: Record<
@@ -38,9 +43,27 @@ const difficultyVariant: Record<
 };
 
 
-export function TrackerGrid({ initialPhases }: Props) {
+export function TrackerGrid({ initialPhases, currentTimeline }: Props) {
   const [phases, setPhases] = useState(initialPhases);
-  const stats = useMemo(() => computeStats(phases), [phases]);
+  const hasTimeline =
+    Boolean(currentTimeline) && currentTimeline!.problemIds.length > 0;
+  // Default to the timeline-focused view whenever an active timeline exists.
+  const [timelineOnly, setTimelineOnly] = useState(hasTimeline);
+
+  // When focusing on the current timeline, keep only its problems (and drop
+  // phases that end up empty) so the dashboard reflects just that challenge.
+  const visiblePhases = useMemo(() => {
+    if (!timelineOnly || !currentTimeline) return phases;
+    const allowed = new Set(currentTimeline.problemIds);
+    return phases
+      .map((phase) => ({
+        ...phase,
+        problems: phase.problems.filter((p) => allowed.has(p.$id)),
+      }))
+      .filter((phase) => phase.problems.length > 0);
+  }, [phases, timelineOnly, currentTimeline]);
+
+  const stats = useMemo(() => computeStats(visiblePhases), [visiblePhases]);
   const phaseOptions = useMemo(
     () => phases.map((p) => ({ id: p.$id, name: p.name })),
     [phases],
@@ -178,15 +201,37 @@ export function TrackerGrid({ initialPhases }: Props) {
 
   return (
     <div className="flex flex-col gap-8">
+      {hasTimeline && (
+        <div className="bg-muted/40 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3">
+          <p className="text-sm">
+            {timelineOnly ? (
+              <>
+                Showing problems in your current timeline{" "}
+                <span className="font-semibold">{currentTimeline!.name}</span>.
+              </>
+            ) : (
+              <>Showing all problems.</>
+            )}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setTimelineOnly((v) => !v)}
+          >
+            {timelineOnly ? "Show all problems" : "Show current timeline"}
+          </Button>
+        </div>
+      )}
+
       <Dashboard stats={stats} />
 
-      {phases.length === 0 ? (
+      {visiblePhases.length === 0 ? (
         <p className="text-muted-foreground text-sm">
           No problems yet. Use your AI assistant (via the MCP connection) to add
           phases and problems, then refresh.
         </p>
       ) : (
-        phases.map((phase) => (
+        visiblePhases.map((phase) => (
           <section key={phase.$id} className="flex flex-col gap-3">
             <div className="flex items-center gap-3">
               <h2 className="text-lg font-semibold">{phase.name}</h2>

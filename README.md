@@ -14,6 +14,8 @@ Browser ──(Google login)──► Next.js grid ──► Appwrite (Auth + Da
 
 - Phase-grouped grid of problems with per-approach checkboxes.
 - Live dashboard: problems solved, approaches done, progress %, MUST done.
+- **Timelines**: group problems into time-boxed challenges (start/end window)
+  with per-timeline status (Upcoming/Active/Ended) and solved progress.
 - Optimistic single-row updates (minimal Appwrite reads).
 - `/api/mcp` Streamable-HTTP MCP server (built on Vercel's `mcp-handler` +
   the official MCP SDK) with tools to add/update problems.
@@ -67,7 +69,9 @@ npm run dev                  # http://localhost:3000
 ### MCP tools
 
 `list_phases`, `add_phase`, `list_problems`, `add_problem`,
-`add_problems_bulk`, `set_approach_done`, `set_problem_solved`, `get_stats`.
+`add_problems_bulk`, `set_approach_done`, `set_problem_solved`, `get_stats`,
+`list_timelines`, `create_timeline`, `add_problems_to_timeline`,
+`remove_problems_from_timeline`.
 
 ## 4. Deploy to Appwrite Sites
 

@@ -32,6 +32,25 @@ export type PhaseWithProblems = Phase & {
   problems: Problem[];
 };
 
+/**
+ * A timeline: a time-boxed challenge grouping a set of problems the user wants
+ * to solve within a start/end window. Dates are stored as ISO 8601 strings
+ * (empty string means "unset").
+ */
+export type Timeline = {
+  $id: string;
+  name: string;
+  startAt: string;
+  endAt: string;
+  order: number;
+  problemIds: string[];
+};
+
+/** A timeline together with its resolved problems, ready to render. */
+export type TimelineWithProblems = Timeline & {
+  problems: Problem[];
+};
+
 /** Derived dashboard counters shown at the top of the grid. */
 export type TrackerStats = {
   problemsSolved: number;

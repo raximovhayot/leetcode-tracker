@@ -26,6 +26,29 @@ export function approachesAllDone(
   return approaches.length > 0 && approaches.every((a) => a.done);
 }
 
+/** Lifecycle state of a timeline relative to the current time. */
+export type TimelineStatus = "upcoming" | "active" | "ended" | "open";
+
+/**
+ * Derives a timeline's status from its start/end window. An empty/invalid date
+ * is treated as unset; a timeline with no usable dates is considered "open".
+ */
+export function getTimelineStatus(
+  startAt: string,
+  endAt: string,
+  now: number = Date.now(),
+): TimelineStatus {
+  const start = startAt ? Date.parse(startAt) : NaN;
+  const end = endAt ? Date.parse(endAt) : NaN;
+  const hasStart = !Number.isNaN(start);
+  const hasEnd = !Number.isNaN(end);
+
+  if (hasStart && now < start) return "upcoming";
+  if (hasEnd && now > end) return "ended";
+  if (hasStart || hasEnd) return "active";
+  return "open";
+}
+
 /**
  * Derives the dashboard counters from the loaded data. Everything is computed
  * in memory so the grid needs only a single fetch (keeps Appwrite reads low).

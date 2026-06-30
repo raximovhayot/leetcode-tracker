@@ -100,6 +100,21 @@ export async function listTracker(
   }));
 }
 
+/** Loads every problem owned by the user, in stable display order. */
+export async function listAllProblems(
+  databases: Databases,
+  userId: string,
+): Promise<Problem[]> {
+  const docs = await databases.listDocuments(databaseId, problemsCollectionId, [
+    Query.equal("userId", userId),
+    Query.orderAsc("order"),
+    Query.limit(500),
+  ]);
+  return docs.documents
+    .map(mapProblem)
+    .sort((a, b) => a.order - b.order || a.number - b.number);
+}
+
 export type AddPhaseInput = { name: string; order?: number };
 
 export async function addPhase(

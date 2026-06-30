@@ -11,7 +11,12 @@ import {
   listTracker,
   updateProblem,
 } from "../appwrite/tracker";
-import { computeStats } from "../stats";
+import {
+  addTimeline,
+  listTimelines,
+  updateTimeline,
+} from "../appwrite/timelines";
+import { computeStats, getTimelineStatus } from "../stats";
 import type { Approach, Difficulty } from "../types";
 
 const { databaseId, phasesCollectionId, problemsCollectionId } = appwriteConfig;
@@ -75,6 +80,36 @@ async function findProblemByNumber(userId: string, number: number) {
     Query.limit(1),
   ]);
   return res.documents[0] ?? null;
+}
+
+/** Resolves a list of LeetCode problem numbers to their document ids. */
+async function resolveProblemIdsByNumbers(
+  userId: string,
+  numbers: number[],
+): Promise<{ ids: string[]; missing: number[] }> {
+  const ids: string[] = [];
+  const missing: number[] = [];
+  for (const number of numbers) {
+    const doc = await findProblemByNumber(userId, number);
+    if (doc) ids.push(doc.$id);
+    else missing.push(number);
+  }
+  return { ids, missing };
+}
+
+/** Finds a timeline by case-insensitive name, or null if not found. */
+async function findTimelineByName(userId: string, name: string) {
+  const { databases } = createAdminClient();
+  const timelines = await listTimelines(databases, userId);
+  const target = name.toLowerCase();
+  return timelines.find((t) => t.name.toLowerCase() === target) ?? null;
+}
+
+function toNumberArray(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((n) => Number(n))
+    .filter((n) => Number.isFinite(n));
 }
 
 type ProblemArg = {
@@ -310,6 +345,143 @@ export const mcpTools: McpTool[] = [
         solved: Boolean(args.solved),
       });
       return { updated: true };
+    },
+  },
+  {
+    name: "list_timelines",
+    description:
+      "List the user's timelines (time-boxed challenges) with their status, dates and the problems they contain.",
+    inputSchema: { type: "object", properties: {} },
+    handler: async (userId) => {
+      const { databases } = createAdminClient();
+      const timelines = await listTimelines(databases, userId);
+      return timelines.map((t) => ({
+        id: t.$id,
+        name: t.name,
+        startAt: t.startAt,
+        endAt: t.endAt,
+        status: getTimelineStatus(t.startAt, t.endAt),
+        problemCount: t.problems.length,
+        problems: t.problems.map((p) => ({
+          number: p.number,
+          title: p.title,
+          solved: p.solved,
+        })),
+      }));
+    },
+  },
+  {
+    name: "create_timeline",
+    description:
+      "Create a new timeline (time-boxed challenge). Optionally seed it with problems by their LeetCode numbers.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Timeline name, e.g. 'Weekend sprint'." },
+        startAt: {
+          type: "string",
+          description: "Optional ISO 8601 start timestamp, e.g. '2026-07-01T09:00:00Z'.",
+        },
+        endAt: {
+          type: "string",
+          description: "Optional ISO 8601 end timestamp.",
+        },
+        problemNumbers: {
+          type: "array",
+          description: "Optional LeetCode problem numbers to include.",
+          items: { type: "number" },
+        },
+      },
+      required: ["name"],
+    },
+    handler: async (userId, args) => {
+      const { databases } = createAdminClient();
+      const numbers = toNumberArray(args.problemNumbers);
+      const { ids, missing } = await resolveProblemIdsByNumbers(userId, numbers);
+      const timeline = await addTimeline(databases, userId, {
+        name: String(args.name),
+        startAt: args.startAt ? String(args.startAt) : undefined,
+        endAt: args.endAt ? String(args.endAt) : undefined,
+        problemIds: ids,
+      });
+      return {
+        id: timeline.$id,
+        name: timeline.name,
+        problemCount: timeline.problemIds.length,
+        missingNumbers: missing,
+      };
+    },
+  },
+  {
+    name: "add_problems_to_timeline",
+    description:
+      "Add problems (by LeetCode number) to an existing timeline, matched by timeline name.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        timeline: { type: "string", description: "Name of the timeline to add problems to." },
+        problemNumbers: {
+          type: "array",
+          description: "LeetCode problem numbers to add.",
+          items: { type: "number" },
+        },
+      },
+      required: ["timeline", "problemNumbers"],
+    },
+    handler: async (userId, args) => {
+      const timeline = await findTimelineByName(userId, String(args.timeline));
+      if (!timeline) return { updated: false, reason: "Timeline not found." };
+
+      const numbers = toNumberArray(args.problemNumbers);
+      const { ids, missing } = await resolveProblemIdsByNumbers(userId, numbers);
+      const merged = [...new Set([...timeline.problemIds, ...ids])];
+
+      const { databases } = createAdminClient();
+      await updateTimeline(databases, userId, timeline.$id, {
+        problemIds: merged,
+      });
+      return {
+        updated: true,
+        added: merged.length - timeline.problemIds.length,
+        problemCount: merged.length,
+        missingNumbers: missing,
+      };
+    },
+  },
+  {
+    name: "remove_problems_from_timeline",
+    description:
+      "Remove problems (by LeetCode number) from a timeline, matched by timeline name.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        timeline: { type: "string", description: "Name of the timeline to remove problems from." },
+        problemNumbers: {
+          type: "array",
+          description: "LeetCode problem numbers to remove.",
+          items: { type: "number" },
+        },
+      },
+      required: ["timeline", "problemNumbers"],
+    },
+    handler: async (userId, args) => {
+      const timeline = await findTimelineByName(userId, String(args.timeline));
+      if (!timeline) return { updated: false, reason: "Timeline not found." };
+
+      const numbers = toNumberArray(args.problemNumbers);
+      const { ids } = await resolveProblemIdsByNumbers(userId, numbers);
+      const toRemove = new Set(ids);
+      const next = timeline.problemIds.filter((id) => !toRemove.has(id));
+
+      const { databases } = createAdminClient();
+      await updateTimeline(databases, userId, timeline.$id, {
+        problemIds: next,
+      });
+      return {
+        updated: true,
+        removed: timeline.problemIds.length - next.length,
+        problemCount: next.length,
+      };
     },
   },
   {

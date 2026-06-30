@@ -89,6 +89,26 @@
         { "key": "by_token", "type": "unique", "attributes": ["tokenHash"], "orders": ["ASC"] },
         { "key": "by_user", "type": "key", "attributes": ["userId"], "orders": ["ASC"] }
       ]
+    },
+    {
+      "$id": "timelines",
+      "databaseId": "leetcode",
+      "name": "timelines",
+      "enabled": true,
+      "documentSecurity": true,
+      "$permissions": ["create(\"users\")"],
+      "attributes": [
+        { "key": "name", "type": "string", "size": 255, "required": true, "array": false },
+        { "key": "startAt", "type": "string", "size": 64, "required": false, "default": "", "array": false },
+        { "key": "endAt", "type": "string", "size": 64, "required": false, "default": "", "array": false },
+        { "key": "problemIds", "type": "string", "size": 100000, "required": false, "default": "[]", "array": false },
+        { "key": "order", "type": "integer", "required": false, "min": 0, "max": 1000000, "default": 0, "array": false },
+        { "key": "userId", "type": "string", "size": 255, "required": true, "array": false }
+      ],
+      "indexes": [
+        { "key": "by_user", "type": "key", "attributes": ["userId"], "orders": ["ASC"] },
+        { "key": "by_user_order", "type": "key", "attributes": ["userId", "order"], "orders": ["ASC", "ASC"] }
+      ]
     }
   ]
 }
