@@ -1,21 +1,85 @@
-# Next.js template
+# LeetCode Study Tracker
 
-This is a Next.js template with shadcn/ui.
+An interactive, Excel-style LeetCode study tracker. Built with **Next.js (App
+Router, TypeScript, Tailwind, shadcn/ui)** and **Appwrite** (Google login +
+database). An **MCP endpoint** lets an AI assistant add phases and problems for
+you, so you never fill the grid by hand.
 
-## Adding components
+```
+AI assistant ──(Streamable HTTP MCP, Bearer token)──► /api/mcp
+Browser ──(Google login)──► Next.js grid ──► Appwrite (Auth + Database)
+```
 
-To add components to your app, run the following command:
+## Features
+
+- Phase-grouped grid of problems with per-approach checkboxes.
+- Live dashboard: problems solved, approaches done, progress %, MUST done.
+- Optimistic single-row updates (minimal Appwrite reads).
+- `/api/mcp` Streamable-HTTP MCP server with tools to add/update problems.
+- Single-vendor deploy target: **Appwrite Sites** (Next.js SSR supported).
+
+## 1. Appwrite setup
+
+1. Create a project in [Appwrite Cloud](https://cloud.appwrite.io).
+2. Enable the **Google** OAuth provider (Auth → Settings) using Google Cloud
+   OAuth credentials. Add this success redirect URL:
+   `https://<your-domain>/oauth` (and `http://localhost:3000/oauth` for local).
+3. Create a **server API key** with scopes:
+   `sessions.write`, `databases.read`, `databases.write`,
+   `documents.read`, `documents.write`.
+4. Push the database schema with the Appwrite CLI:
+   ```bash
+   npm i -g appwrite-cli
+   appwrite login
+   # set "projectId" in appwrite.json first, then:
+   appwrite push collections
+   ```
+
+## 2. App setup
 
 ```bash
-npx shadcn@latest add button
+cp .env.example .env.local   # fill in your project ID + API key
+npm install
+npm run dev                  # http://localhost:3000
 ```
 
-This will place the ui components in the `components` directory.
+## 3. Connecting an AI assistant (MCP)
 
-## Using components
+1. Sign in, then click **Generate MCP token** on the home page (shown once).
+2. Point your MCP-capable client at `https://<your-domain>/api/mcp` using the
+   token as a **Bearer** token. Example client config:
+   ```json
+   {
+     "mcpServers": {
+       "leetcode-tracker": {
+         "url": "https://<your-domain>/api/mcp",
+         "headers": { "Authorization": "Bearer <your-token>" }
+       }
+     }
+   }
+   ```
+3. Ask your assistant things like *"Add the NeetCode Two Pointers problems"* —
+   it calls `add_problems_bulk` and the grid updates on refresh.
 
-To use the components in your app, import them as follows:
+### MCP tools
 
-```tsx
-import { Button } from "@/components/ui/button";
-```
+`list_phases`, `add_phase`, `list_problems`, `add_problem`,
+`add_problems_bulk`, `set_approach_done`, `set_problem_solved`, `get_stats`.
+
+## 4. Deploy to Appwrite Sites
+
+Create a Site from this repo with the repository root as the root directory,
+framework **Next.js** (install `npm install`, build `npm run build`, output
+`./.next`). Add the same
+environment variables, then deploy. Update the Google OAuth + Appwrite redirect
+URLs to your Site domain.
+
+> The MCP endpoint runs in **stateless JSON mode** (no SSE) so it works on
+> Appwrite Sites/Functions, which buffer responses.
+
+## Notes / roadmap
+
+- v1 uses **Bearer-token** MCP auth (works with desktop clients and many tools).
+  Web-LLM connectors (ChatGPT/Claude.ai) that require **OAuth 2.1** are a
+  planned v2 enhancement.
+- Realtime grid updates can be added later via Appwrite Realtime.

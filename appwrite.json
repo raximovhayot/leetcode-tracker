@@ -1,0 +1,73 @@
+{
+  "projectName": "LeetCode Tracker",
+  "projectId": "REPLACE_WITH_YOUR_PROJECT_ID",
+  "databases": [
+    {
+      "$id": "leetcode",
+      "name": "leetcode",
+      "enabled": true
+    }
+  ],
+  "collections": [
+    {
+      "$id": "phases",
+      "databaseId": "leetcode",
+      "name": "phases",
+      "enabled": true,
+      "documentSecurity": true,
+      "$permissions": ["create(\"users\")"],
+      "attributes": [
+        { "key": "name", "type": "string", "size": 255, "required": true, "array": false },
+        { "key": "order", "type": "integer", "required": false, "min": 0, "max": 100000, "default": 0, "array": false },
+        { "key": "userId", "type": "string", "size": 255, "required": true, "array": false }
+      ],
+      "indexes": [
+        { "key": "by_user", "type": "key", "attributes": ["userId"], "orders": ["ASC"] },
+        { "key": "by_user_order", "type": "key", "attributes": ["userId", "order"], "orders": ["ASC", "ASC"] }
+      ]
+    },
+    {
+      "$id": "problems",
+      "databaseId": "leetcode",
+      "name": "problems",
+      "enabled": true,
+      "documentSecurity": true,
+      "$permissions": ["create(\"users\")"],
+      "attributes": [
+        { "key": "number", "type": "integer", "required": true, "min": 0, "max": 1000000, "array": false },
+        { "key": "title", "type": "string", "size": 255, "required": true, "array": false },
+        { "key": "difficulty", "type": "string", "size": 16, "required": false, "default": "Easy", "format": "enum", "elements": ["Easy", "Medium", "Hard"], "array": false },
+        { "key": "must", "type": "boolean", "required": false, "default": false, "array": false },
+        { "key": "solved", "type": "boolean", "required": false, "default": false, "array": false },
+        { "key": "session", "type": "string", "size": 255, "required": false, "default": "", "array": false },
+        { "key": "order", "type": "integer", "required": false, "min": 0, "max": 1000000, "default": 0, "array": false },
+        { "key": "phaseId", "type": "string", "size": 255, "required": true, "array": false },
+        { "key": "approaches", "type": "string", "size": 100000, "required": false, "default": "[]", "array": false },
+        { "key": "userId", "type": "string", "size": 255, "required": true, "array": false }
+      ],
+      "indexes": [
+        { "key": "by_user", "type": "key", "attributes": ["userId"], "orders": ["ASC"] },
+        { "key": "by_user_order", "type": "key", "attributes": ["userId", "order"], "orders": ["ASC", "ASC"] },
+        { "key": "by_user_number", "type": "key", "attributes": ["userId", "number"], "orders": ["ASC", "ASC"] },
+        { "key": "by_phase", "type": "key", "attributes": ["phaseId"], "orders": ["ASC"] }
+      ]
+    },
+    {
+      "$id": "mcp_tokens",
+      "databaseId": "leetcode",
+      "name": "mcp_tokens",
+      "enabled": true,
+      "documentSecurity": true,
+      "$permissions": [],
+      "attributes": [
+        { "key": "tokenHash", "type": "string", "size": 64, "required": true, "array": false },
+        { "key": "userId", "type": "string", "size": 255, "required": true, "array": false },
+        { "key": "label", "type": "string", "size": 255, "required": false, "default": "default", "array": false }
+      ],
+      "indexes": [
+        { "key": "by_token", "type": "unique", "attributes": ["tokenHash"], "orders": ["ASC"] },
+        { "key": "by_user", "type": "key", "attributes": ["userId"], "orders": ["ASC"] }
+      ]
+    }
+  ]
+}
