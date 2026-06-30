@@ -8,6 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -24,14 +31,25 @@ import {
   type ProblemFormValues,
 } from "./problem-form-dialog";
 
+type TimelineOption = {
+  id: string;
+  name: string;
+  problemIds: string[];
+};
+
 type Props = {
   initialPhases: PhaseWithProblems[];
+  /** All of the user's timelines, used to populate the filter dropdown. */
+  timelines?: TimelineOption[];
   /**
-   * The currently active timeline, if any. When present, the tracker defaults
-   * to showing only the problems it contains (with a toggle to show all).
+   * The timeline to select by default in the filter (typically the active
+   * one). When null, the filter defaults to "All".
    */
-  currentTimeline?: { name: string; problemIds: string[] } | null;
+  defaultTimelineId?: string | null;
 };
+
+/** Sentinel value for the "show every problem" option in the filter. */
+const ALL_TIMELINES = "all";
 
 const difficultyVariant: Record<
   Problem["difficulty"],
@@ -43,25 +61,35 @@ const difficultyVariant: Record<
 };
 
 
-export function TrackerGrid({ initialPhases, currentTimeline }: Props) {
+export function TrackerGrid({
+  initialPhases,
+  timelines = [],
+  defaultTimelineId = null,
+}: Props) {
   const [phases, setPhases] = useState(initialPhases);
-  const hasTimeline =
-    Boolean(currentTimeline) && currentTimeline!.problemIds.length > 0;
-  // Default to the timeline-focused view whenever an active timeline exists.
-  const [timelineOnly, setTimelineOnly] = useState(hasTimeline);
+  // The selected timeline filter; defaults to the active timeline (if any),
+  // otherwise "All".
+  const [selectedTimelineId, setSelectedTimelineId] = useState<string>(
+    defaultTimelineId ?? ALL_TIMELINES,
+  );
 
-  // When focusing on the current timeline, keep only its problems (and drop
-  // phases that end up empty) so the dashboard reflects just that challenge.
+  const selectedTimeline = useMemo(
+    () => timelines.find((t) => t.id === selectedTimelineId) ?? null,
+    [timelines, selectedTimelineId],
+  );
+
+  // When a timeline is selected, keep only its problems (and drop phases that
+  // end up empty) so the dashboard reflects just that challenge.
   const visiblePhases = useMemo(() => {
-    if (!timelineOnly || !currentTimeline) return phases;
-    const allowed = new Set(currentTimeline.problemIds);
+    if (!selectedTimeline) return phases;
+    const allowed = new Set(selectedTimeline.problemIds);
     return phases
       .map((phase) => ({
         ...phase,
         problems: phase.problems.filter((p) => allowed.has(p.$id)),
       }))
       .filter((phase) => phase.problems.length > 0);
-  }, [phases, timelineOnly, currentTimeline]);
+  }, [phases, selectedTimeline]);
 
   const stats = useMemo(() => computeStats(visiblePhases), [visiblePhases]);
   const phaseOptions = useMemo(
@@ -201,25 +229,27 @@ export function TrackerGrid({ initialPhases, currentTimeline }: Props) {
 
   return (
     <div className="flex flex-col gap-8">
-      {hasTimeline && (
-        <div className="bg-muted/40 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3">
-          <p className="text-sm">
-            {timelineOnly ? (
-              <>
-                Showing problems in your current timeline{" "}
-                <span className="font-semibold">{currentTimeline!.name}</span>.
-              </>
-            ) : (
-              <>Showing all problems.</>
-            )}
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setTimelineOnly((v) => !v)}
+      {timelines.length > 0 && (
+        <div className="bg-muted/40 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3">
+          <label className="text-sm font-medium" htmlFor="timeline-filter">
+            Timeline
+          </label>
+          <Select
+            value={selectedTimelineId}
+            onValueChange={setSelectedTimelineId}
           >
-            {timelineOnly ? "Show all problems" : "Show current timeline"}
-          </Button>
+            <SelectTrigger id="timeline-filter" size="sm" className="min-w-48">
+              <SelectValue placeholder="All" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_TIMELINES}>All</SelectItem>
+              {timelines.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 

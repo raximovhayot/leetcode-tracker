@@ -18,23 +18,35 @@ export default async function HomePage() {
 
   let phases: PhaseWithProblems[] = [];
   let timelines: TimelineWithProblems[] = [];
+  // Load problems and timelines independently so that a failure loading
+  // timelines (e.g. the collection has not been pushed to Appwrite yet) does
+  // not also wipe out the problems list.
   try {
     const { databases } = await createSessionClient();
-    [phases, timelines] = await Promise.all([
+    const [phasesResult, timelinesResult] = await Promise.allSettled([
       listTracker(databases, user.$id),
       listTimelines(databases, user.$id),
     ]);
+    if (phasesResult.status === "fulfilled") phases = phasesResult.value;
+    if (timelinesResult.status === "fulfilled")
+      timelines = timelinesResult.value;
   } catch {
     phases = [];
     timelines = [];
   }
 
   // The "current" timeline is the one that is active right now. When present,
-  // the tracker defaults to showing only the problems it contains.
+  // the tracker's filter defaults to showing only the problems it contains.
   const currentTimeline =
     timelines.find(
       (t) => getTimelineStatus(t.startAt, t.endAt) === "active",
     ) ?? null;
+
+  const timelineOptions = timelines.map((t) => ({
+    id: t.$id,
+    name: t.name,
+    problemIds: t.problemIds,
+  }));
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10">
@@ -58,14 +70,8 @@ export default async function HomePage() {
 
       <TrackerGrid
         initialPhases={phases}
-        currentTimeline={
-          currentTimeline
-            ? {
-                name: currentTimeline.name,
-                problemIds: currentTimeline.problemIds,
-              }
-            : null
-        }
+        timelines={timelineOptions}
+        defaultTimelineId={currentTimeline?.$id ?? null}
       />
     </main>
   );
