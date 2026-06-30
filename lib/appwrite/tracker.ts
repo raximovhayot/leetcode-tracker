@@ -175,6 +175,12 @@ async function findProblem(
 }
 
 export type UpdateProblemInput = {
+  number?: number;
+  title?: string;
+  url?: string;
+  difficulty?: Difficulty;
+  phaseId?: string;
+  order?: number;
   solved?: boolean;
   must?: boolean;
   approaches?: Approach[];
@@ -190,6 +196,12 @@ export async function updateProblem(
   if (!existing) return null;
 
   const data: Record<string, unknown> = {};
+  if (patch.number !== undefined) data.number = patch.number;
+  if (patch.title !== undefined) data.title = patch.title;
+  if (patch.url !== undefined) data.url = patch.url;
+  if (patch.difficulty !== undefined) data.difficulty = patch.difficulty;
+  if (patch.phaseId !== undefined) data.phaseId = patch.phaseId;
+  if (patch.order !== undefined) data.order = patch.order;
   if (patch.solved !== undefined) data.solved = patch.solved;
   if (patch.must !== undefined) data.must = patch.must;
   if (patch.approaches !== undefined) {
@@ -226,4 +238,17 @@ export async function setApproachDone(
     i === approachIndex ? { ...a, done } : a,
   );
   return updateProblem(databases, userId, problemId, { approaches });
+}
+
+/** Deletes a problem owned by the user. Returns true on success. */
+export async function deleteProblem(
+  databases: Databases,
+  userId: string,
+  problemId: string,
+): Promise<boolean> {
+  const existing = await findProblem(databases, userId, problemId);
+  if (!existing) return false;
+
+  await databases.deleteDocument(databaseId, problemsCollectionId, problemId);
+  return true;
 }

@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
@@ -17,6 +19,10 @@ import { approachesAllDone, computeStats } from "@/lib/stats";
 import type { Approach, PhaseWithProblems, Problem } from "@/lib/types";
 
 import { Dashboard } from "./dashboard";
+import {
+  ProblemFormDialog,
+  type ProblemFormValues,
+} from "./problem-form-dialog";
 
 type Props = {
   initialPhases: PhaseWithProblems[];
@@ -35,6 +41,10 @@ const difficultyVariant: Record<
 export function TrackerGrid({ initialPhases }: Props) {
   const [phases, setPhases] = useState(initialPhases);
   const stats = useMemo(() => computeStats(phases), [phases]);
+  const phaseOptions = useMemo(
+    () => phases.map((p) => ({ id: p.$id, name: p.name })),
+    [phases],
+  );
 
   function replaceProblem(updated: Problem) {
     setPhases((prev) =>
@@ -45,6 +55,96 @@ export function TrackerGrid({ initialPhases }: Props) {
         ),
       })),
     );
+  }
+
+  /** Inserts a problem into its phase (used after a create). */
+  function insertProblem(created: Problem) {
+    setPhases((prev) =>
+      prev.map((phase) =>
+        phase.$id === created.phaseId
+          ? { ...phase, problems: [...phase.problems, created] }
+          : phase,
+      ),
+    );
+  }
+
+  /** Removes a problem from whichever phase it belongs to. */
+  function removeProblem(problemId: string) {
+    setPhases((prev) =>
+      prev.map((phase) => ({
+        ...phase,
+        problems: phase.problems.filter((p) => p.$id !== problemId),
+      })),
+    );
+  }
+
+  /** Moves/replaces a problem after an edit, handling phase changes too. */
+  function applyEditedProblem(updated: Problem) {
+    setPhases((prev) =>
+      prev.map((phase) => {
+        const without = phase.problems.filter((p) => p.$id !== updated.$id);
+        if (phase.$id === updated.phaseId) {
+          return { ...phase, problems: [...without, updated] };
+        }
+        return { ...phase, problems: without };
+      }),
+    );
+  }
+
+  async function createProblem(values: ProblemFormValues): Promise<boolean> {
+    try {
+      const res = await fetch("/api/problems", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      if (!res.ok) throw new Error("Request failed");
+      const { problem } = (await res.json()) as { problem: Problem };
+      insertProblem(problem);
+      toast.success("Problem added.");
+      return true;
+    } catch {
+      toast.error("Could not add problem. Please try again.");
+      return false;
+    }
+  }
+
+  async function editProblem(
+    problem: Problem,
+    values: ProblemFormValues,
+  ): Promise<boolean> {
+    try {
+      const res = await fetch(`/api/problems/${problem.$id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      if (!res.ok) throw new Error("Request failed");
+      const { problem: updated } = (await res.json()) as { problem: Problem };
+      applyEditedProblem(updated);
+      toast.success("Problem updated.");
+      return true;
+    } catch {
+      toast.error("Could not update problem. Please try again.");
+      return false;
+    }
+  }
+
+  async function deleteProblem(problem: Problem) {
+    if (!confirm(`Delete problem #${problem.number} \"${problem.title}\"?`)) {
+      return;
+    }
+    removeProblem(problem.$id); // optimistic
+    try {
+      const res = await fetch(`/api/problems/${problem.$id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Request failed");
+      toast.success("Problem deleted.");
+    } catch {
+      insertProblem(problem); // revert
+      toast.error("Could not delete problem. Please try again.");
+    }
   }
 
   async function patchProblem(problem: Problem, body: object, next: Problem) {
@@ -94,6 +194,17 @@ export function TrackerGrid({ initialPhases }: Props) {
                 {phase.problems.filter((p) => p.solved).length}/
                 {phase.problems.length}
               </Badge>
+              <ProblemFormDialog
+                phases={phaseOptions}
+                defaultPhaseId={phase.$id}
+                onSubmit={createProblem}
+                trigger={
+                  <Button variant="outline" size="sm" className="ml-auto">
+                    <Plus data-icon="inline-start" />
+                    Add problem
+                  </Button>
+                }
+              />
             </div>
 
             <div className="rounded-lg border">
@@ -105,6 +216,7 @@ export function TrackerGrid({ initialPhases }: Props) {
                     <TableHead className="w-24">Difficulty</TableHead>
                     <TableHead className="w-20">Priority</TableHead>
                     <TableHead className="min-w-64">Approaches</TableHead>
+                    <TableHead className="w-24 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -167,6 +279,32 @@ export function TrackerGrid({ initialPhases }: Props) {
                               </label>
                             ))
                           )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <ProblemFormDialog
+                            phases={phaseOptions}
+                            problem={problem}
+                            onSubmit={(values) => editProblem(problem, values)}
+                            trigger={
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label="Edit problem"
+                              >
+                                <Pencil />
+                              </Button>
+                            }
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Delete problem"
+                            onClick={() => deleteProblem(problem)}
+                          >
+                            <Trash2 />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
