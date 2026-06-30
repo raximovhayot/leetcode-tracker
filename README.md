@@ -15,7 +15,10 @@ Browser ──(Google login)──► Next.js grid ──► Appwrite (Auth + Da
 - Phase-grouped grid of problems with per-approach checkboxes.
 - Live dashboard: problems solved, approaches done, progress %, MUST done.
 - Optimistic single-row updates (minimal Appwrite reads).
-- `/api/mcp` Streamable-HTTP MCP server with tools to add/update problems.
+- `/api/mcp` Streamable-HTTP MCP server (built on Vercel's `mcp-handler` +
+  the official MCP SDK) with tools to add/update problems.
+- Two MCP auth modes: personal **Bearer tokens** and **OAuth 2.1** (PKCE +
+  dynamic client registration) for web LLM connectors like ChatGPT/Claude.ai.
 - Single-vendor deploy target: **Appwrite Sites** (Next.js SSR supported).
 
 ## 1. Appwrite setup
@@ -74,12 +77,33 @@ framework **Next.js** (install `npm install`, build `npm run build`, output
 environment variables, then deploy. Update the Google OAuth + Appwrite redirect
 URLs to your Site domain.
 
-> The MCP endpoint runs in **stateless JSON mode** (no SSE) so it works on
-> Appwrite Sites/Functions, which buffer responses.
+> The MCP endpoint is served by **`mcp-handler`** (Vercel's adapter around the
+> official `@modelcontextprotocol/sdk`) from `app/api/[transport]/route.ts`,
+> which exposes the spec-compliant **Streamable HTTP** transport at `/api/mcp`.
+> It runs **stateless** (no `REDIS_URL` configured), so it stays compatible with
+> Appwrite Sites/Functions, which buffer responses. Bearer tokens are validated
+> by `withMcpAuth`, which delegates to our Appwrite-backed token resolver.
+
+### OAuth 2.1 for web LLM connectors
+
+Web connectors (ChatGPT, Claude.ai) require OAuth instead of a pasted token.
+This app ships a minimal, **stateless** OAuth 2.1 authorization server that
+bridges your existing Appwrite Google login (the transport handles tokens via
+`withMcpAuth`; this app remains the authorization server):
+
+- Discovery: `/.well-known/oauth-protected-resource` and
+  `/.well-known/oauth-authorization-server`.
+- Endpoints: `/api/oauth/register` (dynamic client registration),
+  `/api/oauth/authorize` (PKCE S256), `/api/oauth/token`.
+- Authorization codes and access tokens are HMAC-signed (no extra collection).
+  Set `MCP_OAUTH_SECRET` to a long random string in production.
+
+To connect such a client, just point it at `https://<your-domain>/api/mcp`; it
+discovers the auth server from the `401` response and walks you through Google
+login. No manual token needed.
 
 ## Notes / roadmap
 
-- v1 uses **Bearer-token** MCP auth (works with desktop clients and many tools).
-  Web-LLM connectors (ChatGPT/Claude.ai) that require **OAuth 2.1** are a
-  planned v2 enhancement.
+- MCP auth supports both **Bearer tokens** (desktop clients) and **OAuth 2.1**
+  (web LLM connectors such as ChatGPT/Claude.ai).
 - Realtime grid updates can be added later via Appwrite Realtime.

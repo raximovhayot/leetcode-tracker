@@ -3,9 +3,20 @@ import { redirect } from "next/navigation";
 import { LoginButton } from "@/components/auth/login-button";
 import { getLoggedInUser } from "@/lib/appwrite/server";
 
-export default async function LoginPage() {
+/** Only same-origin relative paths are honored to avoid open redirects. */
+function safeNext(next: string | undefined): string | undefined {
+  if (next && next.startsWith("/") && !next.startsWith("//")) return next;
+  return undefined;
+}
+
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const next = safeNext((await searchParams).next);
   const user = await getLoggedInUser();
-  if (user) redirect("/");
+  if (user) redirect(next ?? "/");
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-6 px-6 text-center">
@@ -16,7 +27,7 @@ export default async function LoginPage() {
           fill it in for you.
         </p>
       </div>
-      <LoginButton />
+      <LoginButton next={next} />
     </main>
   );
 }

@@ -4,6 +4,7 @@ import { createHash, randomBytes } from "node:crypto";
 
 import { ID, Permission, Query, Role } from "node-appwrite";
 
+import { verifyAccessToken } from "../mcp/oauth";
 import { appwriteConfig } from "./config";
 import { createAdminClient } from "./server";
 
@@ -22,6 +23,12 @@ export async function resolveTokenUserId(
   token: string,
 ): Promise<string | null> {
   if (!token) return null;
+
+  // OAuth 2.1 access tokens are self-contained and verified without a DB call.
+  const oauthUserId = verifyAccessToken(token);
+  if (oauthUserId) return oauthUserId;
+
+  // Fall back to legacy personal bearer tokens stored hashed in the database.
   const { databases } = createAdminClient();
   try {
     const res = await databases.listDocuments(databaseId, tokensCollectionId, [
