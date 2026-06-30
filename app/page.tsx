@@ -1,8 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { LogoutButton } from "@/components/auth/logout-button";
-import { TokenGenerator } from "@/components/tracker/token-generator";
 import { TrackerGrid } from "@/components/tracker/tracker-grid";
+import { Button } from "@/components/ui/button";
 import { createSessionClient, getLoggedInUser } from "@/lib/appwrite/server";
 import { listTracker } from "@/lib/appwrite/tracker";
 import type { PhaseWithProblems } from "@/lib/types";
@@ -30,10 +31,13 @@ export default async function HomePage() {
             Signed in as {user.name || user.email}
           </p>
         </div>
-        <LogoutButton />
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/sessions">Connect your AI assistant</Link>
+          </Button>
+          <LogoutButton />
+        </div>
       </header>
-
-      <TokenGenerator />
 
       <TrackerGrid initialPhases={phases} />
     </main>

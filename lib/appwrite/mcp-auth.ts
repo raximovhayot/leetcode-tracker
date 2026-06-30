@@ -43,6 +43,59 @@ export async function resolveTokenUserId(
   }
 }
 
+/** A safe, non-secret summary of a stored MCP token. */
+export type McpTokenSummary = {
+  id: string;
+  label: string;
+  createdAt: string;
+};
+
+/** Lists the MCP tokens owned by a user, without exposing any secret. */
+export async function listMcpTokens(
+  userId: string,
+): Promise<McpTokenSummary[]> {
+  const { databases } = createAdminClient();
+  try {
+    const res = await databases.listDocuments(databaseId, tokensCollectionId, [
+      Query.equal("userId", userId),
+      Query.orderDesc("$createdAt"),
+      Query.limit(100),
+    ]);
+    return res.documents.map((doc) => ({
+      id: String(doc.$id),
+      label: String((doc as Record<string, unknown>).label ?? "default"),
+      createdAt: String(doc.$createdAt),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Revokes (deletes) an MCP token, but only if it belongs to the given user.
+ * Returns true when a token was removed.
+ */
+export async function deleteMcpToken(
+  userId: string,
+  tokenId: string,
+): Promise<boolean> {
+  const { databases } = createAdminClient();
+  try {
+    const doc = await databases.getDocument(
+      databaseId,
+      tokensCollectionId,
+      tokenId,
+    );
+    if (String((doc as Record<string, unknown>).userId) !== userId) {
+      return false;
+    }
+    await databases.deleteDocument(databaseId, tokensCollectionId, tokenId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Issues a new MCP token for a user and stores only its hash.
  * Returns the plaintext token once — it cannot be recovered later.

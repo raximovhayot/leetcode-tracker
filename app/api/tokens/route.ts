@@ -1,9 +1,20 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-import { createMcpToken } from "@/lib/appwrite/mcp-auth";
+import { createMcpToken, listMcpTokens } from "@/lib/appwrite/mcp-auth";
 import { getLoggedInUser } from "@/lib/appwrite/server";
 
 export const runtime = "nodejs";
+
+/** Lists the current user's MCP tokens (labels and dates only, no secrets). */
+export async function GET() {
+  const user = await getLoggedInUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const tokens = await listMcpTokens(user.$id);
+  return NextResponse.json({ tokens });
+}
 
 /**
  * Generates a personal MCP bearer token for the current user. The plaintext
