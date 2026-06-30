@@ -89,7 +89,10 @@ export async function listTracker(
   ]);
 
   const phases = phaseDocs.documents.map(mapPhase);
-  const problems = problemDocs.documents.map(mapProblem);
+  const problems = problemDocs.documents
+    .map(mapProblem)
+    // Stable display order: by `order`, then problem number as a tiebreak.
+    .sort((a, b) => a.order - b.order || a.number - b.number);
 
   return phases.map((phase) => ({
     ...phase,
@@ -143,7 +146,7 @@ export async function addProblem(
       difficulty: input.difficulty ?? "Easy",
       must: input.must ?? false,
       solved: input.solved ?? false,
-      order: input.order ?? input.number,
+      order: input.order ?? 0,
       approaches: JSON.stringify(input.approaches ?? []),
       userId,
     },

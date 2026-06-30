@@ -84,6 +84,7 @@ type ProblemArg = {
   difficulty?: Difficulty;
   must?: boolean;
   solved?: boolean;
+  order?: number;
   approaches?: unknown;
 };
 
@@ -97,7 +98,7 @@ async function insertProblem(userId: string, phaseId: string, p: ProblemArg) {
     difficulty: p.difficulty ?? "Easy",
     must: Boolean(p.must),
     solved: Boolean(p.solved),
-    order: Number(p.number),
+    order: p.order === undefined ? 0 : Number(p.order),
     approaches: asApproaches(p.approaches),
   };
   return addProblem(databases, userId, input);
@@ -188,6 +189,10 @@ export const mcpTools: McpTool[] = [
           description: "Problem difficulty.",
         },
         must: { type: "boolean", description: "Mark as a must-do problem." },
+        order: {
+          type: "number",
+          description: "Sort order within the phase (lower comes first). Defaults to 0.",
+        },
         approaches: {
           type: "array",
           description:
@@ -205,6 +210,7 @@ export const mcpTools: McpTool[] = [
         url: args.url ? String(args.url) : undefined,
         difficulty: args.difficulty as Difficulty | undefined,
         must: Boolean(args.must),
+        order: args.order === undefined ? undefined : Number(args.order),
         approaches: args.approaches,
       });
       return { id: problem.$id, number: problem.number, title: problem.title };
@@ -229,6 +235,7 @@ export const mcpTools: McpTool[] = [
               url: { type: "string" },
               difficulty: { type: "string", enum: ["Easy", "Medium", "Hard"] },
               must: { type: "boolean" },
+              order: { type: "number" },
               approaches: { type: "array", items: { type: "string" } },
             },
             required: ["number", "title"],
