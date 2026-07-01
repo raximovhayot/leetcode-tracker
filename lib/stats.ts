@@ -56,8 +56,10 @@ export function getTimelineStatus(
 export function computeStats(phases: PhaseWithProblems[]): TrackerStats {
   const problems: Problem[] = phases.flatMap((p) => p.problems);
 
+  const isSolved = (problem: Problem) => getSolveStatus(problem) !== "unsolved";
+
   const problemsTotal = problems.length;
-  const problemsSolved = problems.filter((p) => p.solved).length;
+  const problemsSolved = problems.filter(isSolved).length;
 
   let approachesTotal = 0;
   let approachesDone = 0;
@@ -68,7 +70,7 @@ export function computeStats(phases: PhaseWithProblems[]): TrackerStats {
 
   const mustProblems = problems.filter((p) => p.must);
   const mustTotal = mustProblems.length;
-  const mustDone = mustProblems.filter((p) => p.solved).length;
+  const mustDone = mustProblems.filter(isSolved).length;
 
   const progress = problemsTotal === 0 ? 0 : problemsSolved / problemsTotal;
 
