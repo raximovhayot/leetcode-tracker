@@ -46,10 +46,16 @@ type Props = {
    * one). When null, the filter defaults to "All".
    */
   defaultTimelineId?: string | null;
+  /**
+   * Which scope's problems are already present in `initialPhases`: a timeline
+   * id, or {@link ALL_TIMELINES} when the whole collection was loaded. Other
+   * scopes are fetched on demand when the filter changes.
+   */
+  initialLoadedScope?: string;
 };
 
 /** Sentinel value for the "show every problem" option in the filter. */
-const ALL_TIMELINES = "all";
+export const ALL_TIMELINES = "all";
 
 const difficultyVariant: Record<
   Problem["difficulty"],
@@ -65,6 +71,7 @@ export function TrackerGrid({
   initialPhases,
   timelines = [],
   defaultTimelineId = null,
+  initialLoadedScope = ALL_TIMELINES,
 }: Props) {
   const [phases, setPhases] = useState(initialPhases);
   // The selected timeline filter; defaults to the active timeline (if any),
@@ -72,11 +79,60 @@ export function TrackerGrid({
   const [selectedTimelineId, setSelectedTimelineId] = useState<string>(
     defaultTimelineId ?? ALL_TIMELINES,
   );
+  // Scopes whose problems have already been fetched into `phases`. Only the
+  // initial scope is present on first render; others are loaded on demand.
+  const [loadedScopes, setLoadedScopes] = useState<Set<string>>(
+    () => new Set([initialLoadedScope]),
+  );
+  const [loadingScope, setLoadingScope] = useState(false);
 
   const selectedTimeline = useMemo(
     () => timelines.find((t) => t.id === selectedTimelineId) ?? null,
     [timelines, selectedTimelineId],
   );
+
+  /** Merges freshly fetched problems into their phases (dedupes by id). */
+  function mergeProblems(incoming: Problem[]) {
+    setPhases((prev) => {
+      const byId = new Map(incoming.map((p) => [p.$id, p]));
+      return prev.map((phase) => {
+        const existingIds = new Set(phase.problems.map((p) => p.$id));
+        const refreshed = phase.problems.map((p) => byId.get(p.$id) ?? p);
+        const added = incoming.filter(
+          (p) => p.phaseId === phase.$id && !existingIds.has(p.$id),
+        );
+        return {
+          ...phase,
+          problems: [...refreshed, ...added].sort(
+            (a, b) => a.order - b.order || a.number - b.number,
+          ),
+        };
+      });
+    });
+  }
+
+  /** Switches the filter, lazily loading that scope's problems if needed. */
+  async function handleTimelineChange(next: string) {
+    setSelectedTimelineId(next);
+    if (loadedScopes.has(next)) return;
+
+    setLoadingScope(true);
+    try {
+      const url =
+        next === ALL_TIMELINES
+          ? "/api/problems"
+          : `/api/problems?timelineId=${encodeURIComponent(next)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Request failed");
+      const { problems } = (await res.json()) as { problems: Problem[] };
+      mergeProblems(problems);
+      setLoadedScopes((prev) => new Set(prev).add(next));
+    } catch {
+      toast.error("Could not load problems for this timeline.");
+    } finally {
+      setLoadingScope(false);
+    }
+  }
 
   // When a timeline is selected, keep only its problems (and drop phases that
   // end up empty) so the dashboard reflects just that challenge.
@@ -236,7 +292,7 @@ export function TrackerGrid({
           </label>
           <Select
             value={selectedTimelineId}
-            onValueChange={setSelectedTimelineId}
+            onValueChange={handleTimelineChange}
           >
             <SelectTrigger id="timeline-filter" size="sm" className="min-w-48">
               <SelectValue placeholder="All" />
@@ -250,6 +306,9 @@ export function TrackerGrid({
               ))}
             </SelectContent>
           </Select>
+          {loadingScope && (
+            <span className="text-muted-foreground text-sm">Loading…</span>
+          )}
         </div>
       )}
 

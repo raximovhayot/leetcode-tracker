@@ -70,34 +70,45 @@ function mapProblem(input: Models.Document): Problem {
   };
 }
 
+/** Stable display order: by `order`, then problem number as a tiebreak. */
+function sortProblems(problems: Problem[]): Problem[] {
+  return problems.sort((a, b) => a.order - b.order || a.number - b.number);
+}
+
+/** Groups a flat list of problems under their phases, preserving phase order. */
+export function groupProblemsByPhase(
+  phases: Phase[],
+  problems: Problem[],
+): PhaseWithProblems[] {
+  return phases.map((phase) => ({
+    ...phase,
+    problems: problems.filter((p) => p.phaseId === phase.$id),
+  }));
+}
+
 /** Loads the full tracker (phases + their problems) for a single user. */
 export async function listTracker(
   databases: Databases,
   userId: string,
 ): Promise<PhaseWithProblems[]> {
-  const [phaseDocs, problemDocs] = await Promise.all([
-    databases.listDocuments(databaseId, phasesCollectionId, [
-      Query.equal("userId", userId),
-      Query.orderAsc("order"),
-      Query.limit(200),
-    ]),
-    databases.listDocuments(databaseId, problemsCollectionId, [
-      Query.equal("userId", userId),
-      Query.orderAsc("order"),
-      Query.limit(500),
-    ]),
+  const [phases, problems] = await Promise.all([
+    listPhases(databases, userId),
+    listAllProblems(databases, userId),
   ]);
+  return groupProblemsByPhase(phases, problems);
+}
 
-  const phases = phaseDocs.documents.map(mapPhase);
-  const problems = problemDocs.documents
-    .map(mapProblem)
-    // Stable display order: by `order`, then problem number as a tiebreak.
-    .sort((a, b) => a.order - b.order || a.number - b.number);
-
-  return phases.map((phase) => ({
-    ...phase,
-    problems: problems.filter((p) => p.phaseId === phase.$id),
-  }));
+/** Loads only the phases (categories) owned by the user, in order. */
+export async function listPhases(
+  databases: Databases,
+  userId: string,
+): Promise<Phase[]> {
+  const docs = await databases.listDocuments(databaseId, phasesCollectionId, [
+    Query.equal("userId", userId),
+    Query.orderAsc("order"),
+    Query.limit(200),
+  ]);
+  return docs.documents.map(mapPhase);
 }
 
 /** Loads every problem owned by the user, in stable display order. */
@@ -110,9 +121,40 @@ export async function listAllProblems(
     Query.orderAsc("order"),
     Query.limit(500),
   ]);
-  return docs.documents
-    .map(mapProblem)
-    .sort((a, b) => a.order - b.order || a.number - b.number);
+  return sortProblems(docs.documents.map(mapProblem));
+}
+
+/**
+ * Loads only the problems whose document id is in `ids`, owned by the user.
+ * Used to scope reads to a single timeline instead of the whole collection.
+ * Appwrite caps the number of values in an equality filter, so ids are read in
+ * batches.
+ */
+export async function listProblemsByIds(
+  databases: Databases,
+  userId: string,
+  ids: string[],
+): Promise<Problem[]> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return [];
+
+  const BATCH = 100;
+  const batches: Promise<Problem[]>[] = [];
+  for (let i = 0; i < unique.length; i += BATCH) {
+    const chunk = unique.slice(i, i + BATCH);
+    batches.push(
+      databases
+        .listDocuments(databaseId, problemsCollectionId, [
+          Query.equal("userId", userId),
+          Query.equal("$id", chunk),
+          Query.limit(chunk.length),
+        ])
+        .then((res) => res.documents.map(mapProblem)),
+    );
+  }
+
+  const results = await Promise.all(batches);
+  return sortProblems(results.flat());
 }
 
 export type AddPhaseInput = { name: string; order?: number };

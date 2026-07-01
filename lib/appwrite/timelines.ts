@@ -9,7 +9,7 @@ import {
   Role,
 } from "node-appwrite";
 
-import type { Timeline, TimelineWithProblems } from "../types";
+import type { Problem, Timeline, TimelineWithProblems } from "../types";
 import { appwriteConfig } from "./config";
 import { listAllProblems } from "./tracker";
 
@@ -52,10 +52,15 @@ function mapTimeline(input: Models.Document): Timeline {
 /**
  * Loads every timeline for a user, each joined with its resolved problems.
  * Problems are fetched once and matched in memory to keep Appwrite reads low.
+ *
+ * When the caller already has the user's problems loaded (e.g. the home page
+ * fetches them via {@link listTracker}), pass them in as `knownProblems` to
+ * avoid a second read of the whole problems collection.
  */
 export async function listTimelines(
   databases: Databases,
   userId: string,
+  knownProblems?: Problem[],
 ): Promise<TimelineWithProblems[]> {
   const [timelineDocs, problems] = await Promise.all([
     databases.listDocuments(databaseId, timelinesCollectionId, [
@@ -63,7 +68,7 @@ export async function listTimelines(
       Query.orderAsc("order"),
       Query.limit(200),
     ]),
-    listAllProblems(databases, userId),
+    knownProblems ?? listAllProblems(databases, userId),
   ]);
 
   const byId = new Map(problems.map((p) => [p.$id, p]));
@@ -75,6 +80,27 @@ export async function listTimelines(
       .map((id) => byId.get(id))
       .filter((p): p is NonNullable<typeof p> => Boolean(p)),
   }));
+}
+
+/**
+ * Loads the user's timelines without joining their problems. Use this when only
+ * timeline metadata (dates, name, problem ids) is needed, so no read of the
+ * problems collection is issued.
+ */
+export async function listTimelinesMeta(
+  databases: Databases,
+  userId: string,
+): Promise<Timeline[]> {
+  const docs = await databases.listDocuments(
+    databaseId,
+    timelinesCollectionId,
+    [
+      Query.equal("userId", userId),
+      Query.orderAsc("order"),
+      Query.limit(200),
+    ],
+  );
+  return docs.documents.map(mapTimeline);
 }
 
 export type AddTimelineInput = {
