@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 import { TimelinesView } from "@/components/tracker/timelines-view";
 import { Button } from "@/components/ui/button";
 import { createSessionClient, getLoggedInUser } from "@/lib/appwrite/server";
-import { listTimelines } from "@/lib/appwrite/timelines";
+import { listTimelinesMeta } from "@/lib/appwrite/timelines";
 import { listTracker } from "@/lib/appwrite/tracker";
-import type { PhaseWithProblems, TimelineWithProblems } from "@/lib/types";
+import type { PhaseWithProblems, Timeline } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -15,12 +15,15 @@ export default async function TimelinesPage() {
   if (!user) redirect("/login");
 
   let phases: PhaseWithProblems[] = [];
-  let timelines: TimelineWithProblems[] = [];
+  let timelines: Timeline[] = [];
   try {
     const { databases } = await createSessionClient();
+    // Load timeline metadata only (no problem join) and reuse the problems
+    // already loaded with the phases to render each timeline's problems on the
+    // client, avoiding a second read of the whole problems collection.
     [phases, timelines] = await Promise.all([
       listTracker(databases, user.$id),
-      listTimelines(databases, user.$id),
+      listTimelinesMeta(databases, user.$id),
     ]);
   } catch {
     phases = [];

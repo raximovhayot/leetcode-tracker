@@ -1,19 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { CalendarClock, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { getTimelineStatus, type TimelineStatus } from "@/lib/stats";
-import type {
-  PhaseWithProblems,
-  Problem,
-  Timeline,
-  TimelineWithProblems,
-} from "@/lib/types";
+import type { PhaseWithProblems, Timeline } from "@/lib/types";
 
 import {
   TimelineFormDialog,
@@ -21,7 +15,7 @@ import {
 } from "./timeline-form-dialog";
 
 type Props = {
-  initialTimelines: TimelineWithProblems[];
+  initialTimelines: Timeline[];
   phases: PhaseWithProblems[];
 };
 
@@ -42,14 +36,6 @@ const statusVariant: Record<
   open: "outline",
 };
 
-const difficultyVariant: Record<
-  Problem["difficulty"],
-  "secondary" | "default" | "destructive"
-> = {
-  Easy: "secondary",
-  Medium: "default",
-  Hard: "destructive",
-};
 
 function formatRange(startAt: string, endAt: string): string {
   const fmt = (iso: string) => {
@@ -70,26 +56,7 @@ function formatRange(startAt: string, endAt: string): string {
 }
 
 export function TimelinesView({ initialTimelines, phases }: Props) {
-  const [timelines, setTimelines] = useState(initialTimelines);
-
-  // Resolve problemIds against the loaded phases so client-side updates can
-  // rebuild the joined problems without another server fetch.
-  const problemsById = useMemo(() => {
-    const map = new Map<string, Problem>();
-    for (const phase of phases) {
-      for (const problem of phase.problems) map.set(problem.$id, problem);
-    }
-    return map;
-  }, [phases]);
-
-  function join(timeline: Timeline): TimelineWithProblems {
-    return {
-      ...timeline,
-      problems: timeline.problemIds
-        .map((id) => problemsById.get(id))
-        .filter((p): p is Problem => Boolean(p)),
-    };
-  }
+  const [timelines, setTimelines] = useState<Timeline[]>(initialTimelines);
 
   async function createTimeline(
     values: TimelineFormValues,
@@ -102,7 +69,7 @@ export function TimelinesView({ initialTimelines, phases }: Props) {
       });
       if (!res.ok) throw new Error("Request failed");
       const { timeline } = (await res.json()) as { timeline: Timeline };
-      setTimelines((prev) => [...prev, join(timeline)]);
+      setTimelines((prev) => [...prev, timeline]);
       toast.success("Timeline created.");
       return true;
     } catch {
@@ -112,7 +79,7 @@ export function TimelinesView({ initialTimelines, phases }: Props) {
   }
 
   async function editTimeline(
-    timeline: TimelineWithProblems,
+    timeline: Timeline,
     values: TimelineFormValues,
   ): Promise<boolean> {
     try {
@@ -126,7 +93,7 @@ export function TimelinesView({ initialTimelines, phases }: Props) {
         timeline: Timeline;
       };
       setTimelines((prev) =>
-        prev.map((t) => (t.$id === updated.$id ? join(updated) : t)),
+        prev.map((t) => (t.$id === updated.$id ? updated : t)),
       );
       toast.success("Timeline updated.");
       return true;
@@ -136,7 +103,7 @@ export function TimelinesView({ initialTimelines, phases }: Props) {
     }
   }
 
-  async function deleteTimeline(timeline: TimelineWithProblems) {
+  async function deleteTimeline(timeline: Timeline) {
     if (!confirm(`Delete timeline "${timeline.name}"?`)) return;
     const previous = timelines;
     setTimelines((prev) => prev.filter((t) => t.$id !== timeline.$id));
@@ -180,9 +147,7 @@ export function TimelinesView({ initialTimelines, phases }: Props) {
               timeline.startAt,
               timeline.endAt,
             );
-            const total = timeline.problems.length;
-            const solved = timeline.problems.filter((p) => p.solved).length;
-            const percent = total === 0 ? 0 : Math.round((solved / total) * 100);
+            const total = timeline.problemIds.length;
 
             return (
               <div
@@ -202,56 +167,9 @@ export function TimelinesView({ initialTimelines, phases }: Props) {
                   </Badge>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <div className="text-muted-foreground flex justify-between text-xs">
-                    <span>
-                      {solved}/{total} solved
-                    </span>
-                    <span className="tabular-nums">{percent}%</span>
-                  </div>
-                  <Progress value={percent} />
-                </div>
-
-                {total > 0 && (
-                  <ul className="flex flex-col gap-1.5">
-                    {timeline.problems.map((problem) => (
-                      <li
-                        key={problem.$id}
-                        className="flex items-center gap-2 text-sm"
-                      >
-                        <span
-                          className={
-                            problem.solved
-                              ? "text-muted-foreground line-through"
-                              : ""
-                          }
-                        >
-                          <span className="text-muted-foreground font-mono">
-                            {problem.number}
-                          </span>{" "}
-                          {problem.url ? (
-                            <a
-                              href={problem.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="hover:underline"
-                            >
-                              {problem.title}
-                            </a>
-                          ) : (
-                            problem.title
-                          )}
-                        </span>
-                        <Badge
-                          variant={difficultyVariant[problem.difficulty]}
-                          className="ml-auto"
-                        >
-                          {problem.difficulty}
-                        </Badge>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <p className="text-muted-foreground text-sm">
+                  {total} {total === 1 ? "problem" : "problems"}
+                </p>
 
                 <div className="flex justify-end gap-1">
                   <TimelineFormDialog
