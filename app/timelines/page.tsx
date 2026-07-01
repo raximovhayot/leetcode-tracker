@@ -18,9 +18,6 @@ export default async function TimelinesPage() {
   let timelines: Timeline[] = [];
   try {
     const { databases } = await createSessionClient();
-    // Load timeline metadata only (no problem join) and reuse the problems
-    // already loaded with the phases to render each timeline's problems on the
-    // client, avoiding a second read of the whole problems collection.
     [phases, timelines] = await Promise.all([
       listTracker(databases, user.$id),
       listTimelinesMeta(databases, user.$id),
